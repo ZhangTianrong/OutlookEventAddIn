@@ -22,13 +22,43 @@
             margin-top: 20px;
             margin-bottom: 20px;
         }
-        .event-block {
-            background: #f4f4f4;
+        .collapsible-section {
             border-radius: 6px;
-            padding: 14px 14px 10px 14px;
-            margin-bottom: 16px;
             box-shadow: 0 1px 4px #0001;
+            background: #f4f4f4;
+            margin-bottom: 16px;
+        }
+        .collapsible-header {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            padding: 10px 14px;
+            font-weight: bold;
+            font-size: 1.1em;
+            user-select: none;
+        }
+        .collapsible-header .arrow {
+            margin-right: 10px;
+            font-size: 1.2em;
+            transition: transform 0.2s;
+        }
+        .collapsible-header.collapsed .arrow {
+            transform: rotate(-90deg);
+        }
+        .collapsible-content {
+            padding: 0 14px 10px 14px;
+            display: block;
+        }
+        .collapsible-content.collapsed {
+            display: none;
+        }
+        .event-block {
+            background: none;
+            box-shadow: none;
+            border-radius: 0;
+            margin-bottom: 0;
             position: relative;
+            padding: 0;
         }
         .event-block input, .event-block textarea, #calendar-metadata input {
             width: 100%;
@@ -48,47 +78,67 @@
             display: block;
             margin-top: 8px;
         }
+        .event-summary-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0;
+        }
+        .event-summary-label {
+            flex: 1 1 auto;
+            font-weight: 500;
+        }
+        .event-summary {
+            min-height: 48px;
+            resize: vertical;
+            margin-bottom: 10px;
+        }
+        .event-description {
+            min-height: 64px;
+            resize: vertical;
+            margin-bottom: 10px;
+        }
         .delete-event-btn {
-            position: absolute;
-            top: 10px;
-            right: 10px;
+            margin-left: 12px;
             background: #e74c3c;
             color: #fff;
             border: none;
             border-radius: 4px;
-            padding: 4px 10px;
+            padding: 4px 14px;
             font-size: 13px;
             cursor: pointer;
+            align-self: flex-start;
+            margin-top: 0;
         }
         .delete-event-btn:hover {
             background: #c0392b;
         }
-        #add-event-btn {
-            margin-top: 10px;
+        .button-row {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin-top: 18px;
+            margin-bottom: 10px;
+        }
+        #add-event-btn, #download-ics {
             padding: 7px 18px;
             border-radius: 4px;
             border: none;
-            background: #27ae60;
-            color: #fff;
             font-weight: bold;
             font-size: 15px;
             cursor: pointer;
             box-shadow: 0 1px 2px #0001;
+        }
+        #add-event-btn {
+            background: #27ae60;
+            color: #fff;
         }
         #add-event-btn:active {
             background: #1e8449;
         }
         #download-ics {
-            margin-top: 10px;
-            padding: 7px 18px;
-            border-radius: 4px;
-            border: none;
             background: #4a90e2;
             color: #fff;
-            font-weight: bold;
-            font-size: 15px;
-            cursor: pointer;
-            box-shadow: 0 1px 2px #0001;
         }
         #download-ics:active {
             background: #357ab8;
@@ -196,7 +246,7 @@
             background: #292929;
             color: #eee;
         }
-        body.dark-mode .event-block {
+        body.dark-mode .collapsible-section {
             background: #232323;
             color: #eee;
         }
@@ -231,6 +281,25 @@
         body.dark-mode #error {
             color: #ff6b6b;
         }
+        /* Custom dark scrollbars for event-block textareas */
+        body.dark-mode .event-block textarea {
+            scrollbar-color: #444 #232323;
+            scrollbar-width: thin;
+        }
+        body.dark-mode .event-block textarea::-webkit-scrollbar {
+            width: 10px;
+            background: #232323;
+        }
+        body.dark-mode .event-block textarea::-webkit-scrollbar-thumb {
+            background: #444;
+            border-radius: 6px;
+        }
+        body.dark-mode .event-block textarea::-webkit-scrollbar-thumb:hover {
+            background: #666;
+        }
+        body.dark-mode .event-block textarea::-webkit-scrollbar-corner {
+            background: #232323;
+        }
     </style>
 </head>
 <body>
@@ -239,7 +308,7 @@
             <h2>Event to ICS</h2>
             <button id="settings-toggle" title="Show/Hide Settings" aria-label="Show/Hide Settings">
                 <!-- Inline SVG icon for settings -->
-                <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#4a90e2"><path d="m370-80-16-128q-13-5-24.5-12T307-235l-119 50L78-375l103-78q-1-7-1-13.5v-27q0-6.5 1-13.5L78-585l110-190 119 50q11-8 23-15t24-12l16-128h220l16 128q13 5 24.5 12t22.5 15l119-50 110 190-103 78q1 7 1 13.5v27q0 6.5-2 13.5l103 78-110 190-118-50q-11 8-23 15t-24 12L590-80H370Zm70-80h79l14-106q31-8 57.5-23.5T639-327l99 41 39-68-86-65q5-14 7-29.5t2-31.5q0-16-2-31.5t-7-29.5l86-65-39-68-99 42q-22-23-48.5-38.5T533-694l-13-106h-79l-14 106q-31 8-57.5 23.5T321-633l-99-41-39 68 86 64q-5 15-7 30t-2 32q0 16 2 31t7 30l-86 65 39 68 99-42q22 23 48.5 38.5T427-266l13 106Zm42-180q58 0 99-41t41-99q0-58-41-99t-99-41q-59 0-99.5 41T342-480q0 58 40.5 99t99.5 41Zm-2-140Z"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#4a90e2"><path d="m370-80-16-128q-13-5-24.5-12T307-235l-119 50L78-375l103-78q-1-7-1-13.5v-27q0-6.5 1-13.5L78-585l110-190 119 50q11-8 23-15t24-12l16-128h220l16 128q13 5 24.5 12t22.5 15l119-50 110 190-103 78q1 7 1 13.5v27q0 6.5-2 13.5l103 78-110 190-118-50q-11 8-23 15t-24 12L590-80H370Zm70-80h79l14-106q31-8 57.5-23.5T639-327l99 41 39-68-86-65q5-14 7-29.5t2-31.5q0-16-2-31.5t-7-29.5l86-65-39-68-99 42q-22-23-48.5-38.5T533-694l-13-106h-79l-14 106q-31-8-57.5-23.5T321-633l-99-41-39 68 86 64q-5 15-7 30t-2 32q0 16 2 31t7 30l-86 65 39 68 99-42q22 23 48.5 38.5T427-266l13 106Zm42-180q58 0 99-41t41-99q0-58-41-99t-99-41q-59 0-99.5 41T342-480q0 58 40.5 99t99.5 41Zm-2-140Z"/></svg>
             </button>
         </div>
         <form id="settings">
@@ -267,8 +336,10 @@
     <div id="error" style="display:none;"></div>
     <div id="calendar-metadata" style="display:none;"></div>
     <div id="events-list" style="display:none;"></div>
-    <button id="add-event-btn" style="display:none;">Add Event</button>
-    <button id="download-ics" style="display:none;">Download ICS</button>
+    <div class="button-row" id="button-row" style="display:none;">
+        <button id="add-event-btn">Add Event</button>
+        <button id="download-ics">Download ICS</button>
+    </div>
 </body>
 <script>
     // Settings keys for localStorage
@@ -344,8 +415,7 @@
         document.getElementById("loading").style.display = loading ? "block" : "none";
         document.getElementById("calendar-metadata").style.display = "none";
         document.getElementById("events-list").style.display = "none";
-        document.getElementById("add-event-btn").style.display = "none";
-        document.getElementById("download-ics").style.display = "none";
+        document.getElementById("button-row").style.display = "none";
         document.getElementById("error").style.display = "none";
     }
     function setError(msg) {
@@ -354,8 +424,7 @@
         document.getElementById("loading").style.display = "none";
         document.getElementById("calendar-metadata").style.display = "none";
         document.getElementById("events-list").style.display = "none";
-        document.getElementById("add-event-btn").style.display = "none";
-        document.getElementById("download-ics").style.display = "none";
+        document.getElementById("button-row").style.display = "none";
     }
 
     // --- ICS Editor State ---
@@ -363,12 +432,32 @@
     let veventComponents = []; // Array of ICAL.Component (VEVENTs)
     let calendarMeta = {}; // { prodid, version, calscale }
 
+    // --- Collapsible Section Utility ---
+    function createCollapsibleSection(title, contentHTML, collapsedByDefault, sectionId) {
+        const section = document.createElement("div");
+        section.className = "collapsible-section";
+        section.id = sectionId || "";
+        const header = document.createElement("div");
+        header.className = "collapsible-header" + (collapsedByDefault ? " collapsed" : "");
+        header.innerHTML = `<span class="arrow">&#9654;</span>${title}`;
+        const content = document.createElement("div");
+        content.className = "collapsible-content" + (collapsedByDefault ? " collapsed" : "");
+        content.innerHTML = contentHTML;
+        header.onclick = function() {
+            const isCollapsed = content.classList.toggle("collapsed");
+            header.classList.toggle("collapsed", isCollapsed);
+        };
+        section.appendChild(header);
+        section.appendChild(content);
+        return section;
+    }
+
     // --- ICS Editor Rendering ---
     function renderICSEditor() {
-        // Render calendar metadata
+        // Render calendar metadata (collapsible, collapsed by default)
         const metaDiv = document.getElementById("calendar-metadata");
-        metaDiv.innerHTML = `
-            <h3>Calendar Metadata</h3>
+        metaDiv.innerHTML = "";
+        const metaContent = `
             <label>PRODID:
                 <input type="text" id="meta-prodid" value="${escapeHTML(calendarMeta.prodid || '')}" />
             </label>
@@ -379,14 +468,18 @@
                 <input type="text" id="meta-calscale" value="${escapeHTML(calendarMeta.calscale || '')}" />
             </label>
         `;
+        const metaSection = createCollapsibleSection("Calendar Metadata", metaContent, true, "meta-collapsible");
+        metaDiv.appendChild(metaSection);
         metaDiv.style.display = "block";
 
         // Attach change listeners for metadata
-        document.getElementById("meta-prodid").oninput = e => { calendarMeta.prodid = e.target.value; };
-        document.getElementById("meta-version").oninput = e => { calendarMeta.version = e.target.value; };
-        document.getElementById("meta-calscale").oninput = e => { calendarMeta.calscale = e.target.value; };
+        setTimeout(() => {
+            document.getElementById("meta-prodid").oninput = e => { calendarMeta.prodid = e.target.value; };
+            document.getElementById("meta-version").oninput = e => { calendarMeta.version = e.target.value; };
+            document.getElementById("meta-calscale").oninput = e => { calendarMeta.calscale = e.target.value; };
+        }, 0);
 
-        // Render events
+        // Render events (each event collapsible, expanded by default)
         const eventsDiv = document.getElementById("events-list");
         eventsDiv.innerHTML = `<h3>Events</h3>`;
         veventComponents.forEach((vevent, idx) => {
@@ -396,28 +489,34 @@
             const summary = event.summary || "";
             const description = event.description || "";
             const uid = event.uid || "";
-            const block = document.createElement("div");
-            block.className = "event-block";
-            block.innerHTML = `
-                <label>Summary:
-                    <input type="text" class="event-summary" value="${escapeHTML(summary)}" />
-                </label>
-                <label>Start (YYYY-MM-DDTHH:MM:SS or YYYY-MM-DD):
+            const eventContent = `
+                <div class="event-summary-row">
+                    <span class="event-summary-label">Summary:</span>
+                    <button class="delete-event-btn" title="Delete Event">Delete</button>
+                </div>
+                <textarea class="event-summary" rows="4">${escapeHTML(summary)}</textarea>
+                <label>Start:
                     <input type="text" class="event-start" value="${escapeHTML(start)}" />
                 </label>
-                <label>End (YYYY-MM-DDTHH:MM:SS or YYYY-MM-DD):
+                <label>End:
                     <input type="text" class="event-end" value="${escapeHTML(end)}" />
                 </label>
                 <label>Description:
-                    <textarea class="event-description" rows="2">${escapeHTML(description)}</textarea>
+                    <textarea class="event-description" rows="4">${escapeHTML(description)}</textarea>
                 </label>
                 <label style="display:none;">UID:
                     <input type="text" class="event-uid" value="${escapeHTML(uid)}" />
                 </label>
-                <button class="delete-event-btn" title="Delete Event">Delete</button>
             `;
-            // Attach listeners
+            const eventSection = createCollapsibleSection(
+                `Event ${idx + 1}`,
+                `<div class="event-block">${eventContent}</div>`,
+                false,
+                `event-collapsible-${idx}`
+            );
+            // Attach listeners after DOM insertion
             setTimeout(() => {
+                const block = eventSection.querySelector(".event-block");
                 block.querySelector(".event-summary").oninput = e => { event.summary = e.target.value; };
                 block.querySelector(".event-start").oninput = e => {
                     try {
@@ -436,13 +535,12 @@
                     renderICSEditor();
                 };
             }, 0);
-            eventsDiv.appendChild(block);
+            eventsDiv.appendChild(eventSection);
         });
         eventsDiv.style.display = "block";
 
-        // Show add event and download buttons
-        document.getElementById("add-event-btn").style.display = "inline-block";
-        document.getElementById("download-ics").style.display = "inline-block";
+        // Show add event and download buttons centered
+        document.getElementById("button-row").style.display = "flex";
     }
 
     // --- ICS Parsing and State Setup ---
