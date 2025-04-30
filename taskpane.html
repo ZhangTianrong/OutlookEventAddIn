@@ -10,7 +10,15 @@
         body { font-family: Arial, sans-serif; margin: 20px; }
         .label { font-weight: bold; }
         .value { margin-bottom: 10px; display: block; }
-        #summary { margin-top: 20px; padding: 10px; background: #f4f4f4; border-radius: 6px; }
+        #summary {
+            margin-top: 20px;
+            padding: 10px;
+            background: #f4f4f4;
+            border-radius: 6px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
         #loading { color: #888; margin-top: 20px; }
         #error { color: #b00; margin-top: 20px; }
         #settings-container { position: relative; margin-bottom: 20px; }
