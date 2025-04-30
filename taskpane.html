@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Read Email Add-in</title>
+    <!-- Office JavaScript API -->
+    <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .label { font-weight: bold; }
+        .value { margin-bottom: 10px; display: block; }
+    </style>
+</head>
+<body>
+    <h2>Email Details</h2>
+    <div>
+        <span class="label">Subject:</span>
+        <span id="subject" class="value"></span>
+    </div>
+    <div>
+        <span class="label">From:</span>
+        <span id="from" class="value"></span>
+    </div>
+    <div>
+        <span class="label">To:</span>
+        <span id="to" class="value"></span>
+    </div>
+    <div>
+        <span class="label">Body Preview:</span>
+        <span id="body" class="value"></span>
+    </div>
+</body>
+<script>
+    Office.onReady((info) => {
+        if (info.host === Office.HostType.Outlook) {
+            const item = Office.context.mailbox.item;
+            // Subject
+            document.getElementById("subject").textContent = item.subject || "(No subject)";
+            // From
+            if (item.from && item.from.displayName) {
+                document.getElementById("from").textContent = item.from.displayName + " <" + item.from.emailAddress + ">";
+            } else {
+                document.getElementById("from").textContent = "(Unknown sender)";
+            }
+            // To
+            if (item.to && item.to.length > 0) {
+                document.getElementById("to").textContent = item.to.map(r => r.displayName + " <" + r.emailAddress + ">").join("; ");
+            } else {
+                document.getElementById("to").textContent = "(No recipients)";
+            }
+            // Body preview (async)
+            item.body.getAsync(Office.CoercionType.Text, function(result) {
+                if (result.status === Office.AsyncResultStatus.Succeeded) {
+                    document.getElementById("body").textContent = result.value.substring(0, 200) + (result.value.length > 200 ? "..." : "");
+                } else {
+                    document.getElementById("body").textContent = "(Unable to load body)";
+                }
+            });
+        }
+    });
+</script>
+</html>
