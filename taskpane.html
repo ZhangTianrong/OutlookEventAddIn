@@ -12,33 +12,104 @@
         #summary { margin-top: 20px; padding: 10px; background: #f4f4f4; border-radius: 6px; }
         #loading { color: #888; margin-top: 20px; }
         #error { color: #b00; margin-top: 20px; }
-        #settings { margin-bottom: 20px; padding: 10px; background: #eef; border-radius: 6px; }
-        #settings label { display: block; margin-top: 8px; }
-        #settings input, #settings textarea { width: 100%; box-sizing: border-box; margin-top: 2px; }
-        #settings button { margin-top: 10px; }
+        #settings-container { position: relative; margin-bottom: 20px; }
+        #settings-toggle {
+            background: none;
+            border: none;
+            cursor: pointer;
+            position: absolute;
+            top: 0;
+            right: 0;
+            padding: 4px;
+            width: 32px;
+            height: 32px;
+        }
+        #settings-toggle svg {
+            width: 28px;
+            height: 28px;
+            vertical-align: middle;
+        }
+        #settings {
+            display: none;
+            margin-top: 8px;
+            padding: 16px 12px 12px 12px;
+            background: #eef;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px #0001;
+            border: 1px solid #dde;
+            max-width: 100%;
+        }
+        #settings.visible {
+            display: block;
+            animation: fadeIn 0.2s;
+        }
+        #settings label {
+            display: block;
+            margin-top: 12px;
+            font-weight: 500;
+        }
+        #settings input, #settings textarea {
+            width: 100%;
+            box-sizing: border-box;
+            margin-top: 4px;
+            padding: 6px;
+            border-radius: 4px;
+            border: 1px solid #ccd;
+            font-size: 14px;
+        }
+        #settings button[type="submit"] {
+            margin-top: 16px;
+            padding: 8px 18px;
+            border-radius: 4px;
+            border: none;
+            background: #4a90e2;
+            color: #fff;
+            font-weight: bold;
+            font-size: 15px;
+            cursor: pointer;
+            box-shadow: 0 1px 2px #0001;
+        }
+        #settings button[type="submit"]:hover {
+            background: #357ab8;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        #settings-title {
+            font-size: 1.1em;
+            font-weight: bold;
+            margin-bottom: 6px;
+        }
     </style>
 </head>
 <body>
-    <h2>Email Summarizer Settings</h2>
-    <form id="settings">
-        <label>
-            OpenAI API Key:
-            <input type="password" id="apiKey" autocomplete="off" placeholder="sk-..." />
-        </label>
-        <label>
-            OpenAI API URL:
-            <input type="text" id="apiUrl" value="https://api.openai.com/v1/chat/completions" />
-        </label>
-        <label>
-            Model:
-            <input type="text" id="model" value="gpt-4.1" />
-        </label>
-        <label>
-            System Prompt:
-            <textarea id="systemPrompt" rows="2">summarize the email</textarea>
-        </label>
-        <button type="submit">Save & Summarize</button>
-    </form>
+    <div id="settings-container">
+        <button id="settings-toggle" title="Show/Hide Settings" aria-label="Show/Hide Settings">
+            <!-- Inline SVG icon for settings -->
+            <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#4a90e2"><path d="m370-80-16-128q-13-5-24.5-12T307-235l-119 50L78-375l103-78q-1-7-1-13.5v-27q0-6.5 1-13.5L78-585l110-190 119 50q11-8 23-15t24-12l16-128h220l16 128q13 5 24.5 12t22.5 15l119-50 110 190-103 78q1 7 1 13.5v27q0 6.5-2 13.5l103 78-110 190-118-50q-11 8-23 15t-24 12L590-80H370Zm70-80h79l14-106q31-8 57.5-23.5T639-327l99 41 39-68-86-65q5-14 7-29.5t2-31.5q0-16-2-31.5t-7-29.5l86-65-39-68-99 42q-22-23-48.5-38.5T533-694l-13-106h-79l-14 106q-31 8-57.5 23.5T321-633l-99-41-39 68 86 64q-5 15-7 30t-2 32q0 16 2 31t7 30l-86 65 39 68 99-42q22 23 48.5 38.5T427-266l13 106Zm42-180q58 0 99-41t41-99q0-58-41-99t-99-41q-59 0-99.5 41T342-480q0 58 40.5 99t99.5 41Zm-2-140Z"/></svg>
+        </button>
+        <form id="settings">
+            <div id="settings-title">Summarizer Settings</div>
+            <label>
+                OpenAI API Key:
+                <input type="password" id="apiKey" autocomplete="off" placeholder="sk-..." />
+            </label>
+            <label>
+                OpenAI API URL:
+                <input type="text" id="apiUrl" value="https://api.openai.com/v1/chat/completions" />
+            </label>
+            <label>
+                Model:
+                <input type="text" id="model" value="gpt-4.1" />
+            </label>
+            <label>
+                System Prompt:
+                <textarea id="systemPrompt" rows="2">summarize the email</textarea>
+            </label>
+            <button type="submit">Save & Summarize</button>
+        </form>
+    </div>
     <h2>Email Summary</h2>
     <div id="loading" style="display:none;">Loading and summarizing email...</div>
     <div id="summary" style="display:none;"></div>
@@ -150,16 +221,34 @@
             const settings = loadSettings();
             fillSettingsForm(settings);
 
+            // Hide settings by default
+            const settingsForm = document.getElementById("settings");
+            settingsForm.classList.remove("visible");
+
+            // Toggle button logic
+            const toggleBtn = document.getElementById("settings-toggle");
+            let settingsVisible = false;
+            toggleBtn.addEventListener("click", function() {
+                settingsVisible = !settingsVisible;
+                if (settingsVisible) {
+                    settingsForm.classList.add("visible");
+                } else {
+                    settingsForm.classList.remove("visible");
+                }
+            });
+
             // On load, if API key is set, run summarization
             if (settings.apiKey) {
                 runSummarization(settings);
             }
 
-            document.getElementById("settings").addEventListener("submit", function(e) {
+            settingsForm.addEventListener("submit", function(e) {
                 e.preventDefault();
                 const newSettings = getSettingsFromForm();
                 saveSettings(newSettings);
                 runSummarization(newSettings);
+                settingsVisible = false;
+                settingsForm.classList.remove("visible");
             });
         }
     });
