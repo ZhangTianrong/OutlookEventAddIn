@@ -5,6 +5,7 @@
     <title>Email Summarizer Add-in</title>
     <!-- Office JavaScript API -->
     <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; }
         .label { font-weight: bold; }
@@ -185,7 +186,8 @@
         document.getElementById("error").style.display = "none";
     }
     function setSummary(summary) {
-        document.getElementById("summary").textContent = summary;
+        // Render markdown using marked.js
+        document.getElementById("summary").innerHTML = marked.parse(summary);
         document.getElementById("summary").style.display = "block";
         document.getElementById("loading").style.display = "none";
         document.getElementById("error").style.display = "none";
