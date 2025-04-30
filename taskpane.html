@@ -12,34 +12,86 @@
         #summary { margin-top: 20px; padding: 10px; background: #f4f4f4; border-radius: 6px; }
         #loading { color: #888; margin-top: 20px; }
         #error { color: #b00; margin-top: 20px; }
+        #settings { margin-bottom: 20px; padding: 10px; background: #eef; border-radius: 6px; }
+        #settings label { display: block; margin-top: 8px; }
+        #settings input, #settings textarea { width: 100%; box-sizing: border-box; margin-top: 2px; }
+        #settings button { margin-top: 10px; }
     </style>
 </head>
 <body>
+    <h2>Email Summarizer Settings</h2>
+    <form id="settings">
+        <label>
+            OpenAI API Key:
+            <input type="password" id="apiKey" autocomplete="off" placeholder="sk-..." />
+        </label>
+        <label>
+            OpenAI API URL:
+            <input type="text" id="apiUrl" value="https://api.openai.com/v1/chat/completions" />
+        </label>
+        <label>
+            Model:
+            <input type="text" id="model" value="gpt-4.1" />
+        </label>
+        <label>
+            System Prompt:
+            <textarea id="systemPrompt" rows="2">summarize the email</textarea>
+        </label>
+        <button type="submit">Save & Summarize</button>
+    </form>
     <h2>Email Summary</h2>
-    <div id="loading">Loading and summarizing email...</div>
+    <div id="loading" style="display:none;">Loading and summarizing email...</div>
     <div id="summary" style="display:none;"></div>
     <div id="error" style="display:none;"></div>
 </body>
 <script>
-    // TODO: Replace with your actual OpenAI API key
-    const OPENAI_API_KEY = "";
-    const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
-    const OPENAI_MODEL = "gpt-4.1";
-    const SYSTEM_PROMPT = "summarize the email";
+    // Settings keys for localStorage
+    const LS_KEY = "emailSummarizerSettings";
+    function loadSettings() {
+        const defaults = {
+            apiKey: "",
+            apiUrl: "https://api.openai.com/v1/chat/completions",
+            model: "gpt-4.1",
+            systemPrompt: "summarize the email"
+        };
+        try {
+            const saved = JSON.parse(localStorage.getItem(LS_KEY));
+            return Object.assign({}, defaults, saved);
+        } catch {
+            return defaults;
+        }
+    }
+    function saveSettings(settings) {
+        localStorage.setItem(LS_KEY, JSON.stringify(settings));
+    }
+    function fillSettingsForm(settings) {
+        document.getElementById("apiKey").value = settings.apiKey;
+        document.getElementById("apiUrl").value = settings.apiUrl;
+        document.getElementById("model").value = settings.model;
+        document.getElementById("systemPrompt").value = settings.systemPrompt;
+    }
+    function getSettingsFromForm() {
+        return {
+            apiKey: document.getElementById("apiKey").value.trim(),
+            apiUrl: document.getElementById("apiUrl").value.trim(),
+            model: document.getElementById("model").value.trim(),
+            systemPrompt: document.getElementById("systemPrompt").value.trim()
+        };
+    }
 
-    async function summarizeEmail(emailText) {
+    async function summarizeEmail(emailText, settings) {
         const messages = [
-            { role: "system", content: SYSTEM_PROMPT },
+            { role: "system", content: settings.systemPrompt },
             { role: "user", content: emailText }
         ];
-        const response = await fetch(OPENAI_API_URL, {
+        const response = await fetch(settings.apiUrl, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "Authorization": "Bearer " + OPENAI_API_KEY
+                "Authorization": "Bearer " + settings.apiKey
             },
             body: JSON.stringify({
-                model: OPENAI_MODEL,
+                model: settings.model,
                 messages: messages,
                 max_tokens: 512,
                 temperature: 0.3
@@ -56,29 +108,58 @@
         }
     }
 
+    function setLoading(loading) {
+        document.getElementById("loading").style.display = loading ? "block" : "none";
+        document.getElementById("summary").style.display = "none";
+        document.getElementById("error").style.display = "none";
+    }
+    function setSummary(summary) {
+        document.getElementById("summary").textContent = summary;
+        document.getElementById("summary").style.display = "block";
+        document.getElementById("loading").style.display = "none";
+        document.getElementById("error").style.display = "none";
+    }
+    function setError(msg) {
+        document.getElementById("error").textContent = msg;
+        document.getElementById("error").style.display = "block";
+        document.getElementById("loading").style.display = "none";
+        document.getElementById("summary").style.display = "none";
+    }
+
+    let lastEmailText = "";
+
+    async function runSummarization(settings) {
+        setLoading(true);
+        Office.context.mailbox.item.body.getAsync(Office.CoercionType.Text, async function(result) {
+            if (result.status === Office.AsyncResultStatus.Succeeded) {
+                lastEmailText = result.value;
+                try {
+                    const summary = await summarizeEmail(lastEmailText, settings);
+                    setSummary(summary);
+                } catch (err) {
+                    setError("Failed to summarize: " + err.message);
+                }
+            } else {
+                setError("Unable to load email body.");
+            }
+        });
+    }
+
     Office.onReady((info) => {
         if (info.host === Office.HostType.Outlook) {
-            const item = Office.context.mailbox.item;
-            // Get the email body as plain text
-            item.body.getAsync(Office.CoercionType.Text, async function(result) {
-                if (result.status === Office.AsyncResultStatus.Succeeded) {
-                    const emailText = result.value;
-                    document.getElementById("loading").textContent = "Summarizing email with OpenAI...";
-                    try {
-                        const summary = await summarizeEmail(emailText);
-                        document.getElementById("summary").textContent = summary;
-                        document.getElementById("summary").style.display = "block";
-                        document.getElementById("loading").style.display = "none";
-                    } catch (err) {
-                        document.getElementById("error").textContent = "Failed to summarize: " + err.message;
-                        document.getElementById("error").style.display = "block";
-                        document.getElementById("loading").style.display = "none";
-                    }
-                } else {
-                    document.getElementById("loading").style.display = "none";
-                    document.getElementById("error").textContent = "Unable to load email body.";
-                    document.getElementById("error").style.display = "block";
-                }
+            const settings = loadSettings();
+            fillSettingsForm(settings);
+
+            // On load, if API key is set, run summarization
+            if (settings.apiKey) {
+                runSummarization(settings);
+            }
+
+            document.getElementById("settings").addEventListener("submit", function(e) {
+                e.preventDefault();
+                const newSettings = getSettingsFromForm();
+                saveSettings(newSettings);
+                runSummarization(newSettings);
             });
         }
     });
