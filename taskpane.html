@@ -2,58 +2,82 @@
 <html>
 <head>
     <meta charset="utf-8" />
-    <title>Read Email Add-in</title>
+    <title>Email Summarizer Add-in</title>
     <!-- Office JavaScript API -->
     <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; }
         .label { font-weight: bold; }
         .value { margin-bottom: 10px; display: block; }
+        #summary { margin-top: 20px; padding: 10px; background: #f4f4f4; border-radius: 6px; }
+        #loading { color: #888; margin-top: 20px; }
+        #error { color: #b00; margin-top: 20px; }
     </style>
 </head>
 <body>
-    <h2>Email Details</h2>
-    <div>
-        <span class="label">Subject:</span>
-        <span id="subject" class="value"></span>
-    </div>
-    <div>
-        <span class="label">From:</span>
-        <span id="from" class="value"></span>
-    </div>
-    <div>
-        <span class="label">To:</span>
-        <span id="to" class="value"></span>
-    </div>
-    <div>
-        <span class="label">Body Preview:</span>
-        <span id="body" class="value"></span>
-    </div>
+    <h2>Email Summary</h2>
+    <div id="loading">Loading and summarizing email...</div>
+    <div id="summary" style="display:none;"></div>
+    <div id="error" style="display:none;"></div>
 </body>
 <script>
+    // TODO: Replace with your actual OpenAI API key
+    const OPENAI_API_KEY = "";
+    const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
+    const OPENAI_MODEL = "gpt-4.1";
+    const SYSTEM_PROMPT = "summarize the email";
+
+    async function summarizeEmail(emailText) {
+        const messages = [
+            { role: "system", content: SYSTEM_PROMPT },
+            { role: "user", content: emailText }
+        ];
+        const response = await fetch(OPENAI_API_URL, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + OPENAI_API_KEY
+            },
+            body: JSON.stringify({
+                model: OPENAI_MODEL,
+                messages: messages,
+                max_tokens: 512,
+                temperature: 0.3
+            })
+        });
+        if (!response.ok) {
+            throw new Error("OpenAI API error: " + response.status + " " + response.statusText);
+        }
+        const data = await response.json();
+        if (data.choices && data.choices.length > 0) {
+            return data.choices[0].message.content.trim();
+        } else {
+            throw new Error("No summary returned from API.");
+        }
+    }
+
     Office.onReady((info) => {
         if (info.host === Office.HostType.Outlook) {
             const item = Office.context.mailbox.item;
-            // Subject
-            document.getElementById("subject").textContent = item.subject || "(No subject)";
-            // From
-            if (item.from && item.from.displayName) {
-                document.getElementById("from").textContent = item.from.displayName + " <" + item.from.emailAddress + ">";
-            } else {
-                document.getElementById("from").textContent = "(Unknown sender)";
-            }
-            // To
-            if (item.to && item.to.length > 0) {
-                document.getElementById("to").textContent = item.to.map(r => r.displayName + " <" + r.emailAddress + ">").join("; ");
-            } else {
-                document.getElementById("to").textContent = "(No recipients)";
-            }
-            // Body preview (async)
-            item.body.getAsync(Office.CoercionType.Text, function(result) {
+            // Get the email body as plain text
+            item.body.getAsync(Office.CoercionType.Text, async function(result) {
                 if (result.status === Office.AsyncResultStatus.Succeeded) {
-                    document.getElementById("body").textContent = result.value.substring(0, 200) + (result.value.length > 200 ? "..." : "");
+                    const emailText = result.value;
+                    document.getElementById("loading").textContent = "Summarizing email with OpenAI...";
+                    try {
+                        const summary = await summarizeEmail(emailText);
+                        document.getElementById("summary").textContent = summary;
+                        document.getElementById("summary").style.display = "block";
+                        document.getElementById("loading").style.display = "none";
+                    } catch (err) {
+                        document.getElementById("error").textContent = "Failed to summarize: " + err.message;
+                        document.getElementById("error").style.display = "block";
+                        document.getElementById("loading").style.display = "none";
+                    }
                 } else {
-                    document.getElementById("body").textContent = "(Unable to load body)";
+                    document.getElementById("loading").style.display = "none";
+                    document.getElementById("error").textContent = "Unable to load email body.";
+                    document.getElementById("error").style.display = "block";
                 }
             });
         }
