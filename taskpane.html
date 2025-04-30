@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8" />
-    <title>Email Summarizer Add-in</title>
+    <title>Event to ICS Add-in</title>
     <!-- Office JavaScript API -->
     <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -26,6 +26,33 @@
             word-break: break-all;
             color: #222;
             transition: background 0.2s, color 0.2s;
+        }
+        #ics-block {
+            background: #222;
+            color: #eee;
+            font-family: "Fira Mono", "Consolas", "Menlo", "Monaco", monospace;
+            font-size: 15px;
+            border-radius: 6px;
+            padding: 12px;
+            margin: 10px 0 0 0;
+            overflow-x: auto;
+            white-space: pre;
+        }
+        #download-ics {
+            margin-top: 10px;
+            padding: 7px 18px;
+            border-radius: 4px;
+            border: none;
+            background: #4a90e2;
+            color: #fff;
+            font-weight: bold;
+            font-size: 15px;
+            cursor: pointer;
+            box-shadow: 0 1px 2px #0001;
+            display: none;
+        }
+        #download-ics:active {
+            background: #357ab8;
         }
         #loading { color: #888; margin-top: 20px; }
         #error { color: #b00; margin-top: 20px; }
@@ -135,6 +162,10 @@
             background: #232323;
             color: #eee;
         }
+        body.dark-mode #ics-block {
+            background: #181818;
+            color: #b8e1ff;
+        }
         body.dark-mode #settings {
             background: #333a44;
             color: #eee;
@@ -178,19 +209,37 @@
             scrollbar-color: #444 #232323;
             scrollbar-width: thin;
         }
+        body.dark-mode #ics-block::-webkit-scrollbar {
+            height: 10px;
+            background: #181818;
+        }
+        body.dark-mode #ics-block::-webkit-scrollbar-thumb {
+            background: #444;
+            border-radius: 6px;
+        }
+        body.dark-mode #ics-block::-webkit-scrollbar-thumb:hover {
+            background: #666;
+        }
+        body.dark-mode #ics-block::-webkit-scrollbar-corner {
+            background: #181818;
+        }
+        body.dark-mode #ics-block {
+            scrollbar-color: #444 #181818;
+            scrollbar-width: thin;
+        }
     </style>
 </head>
 <body>
     <div id="settings-container">
         <div id="summary-header">
-            <h2>Email Summary</h2>
+            <h2>Event to ICS</h2>
             <button id="settings-toggle" title="Show/Hide Settings" aria-label="Show/Hide Settings">
                 <!-- Inline SVG icon for settings -->
                 <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#4a90e2"><path d="m370-80-16-128q-13-5-24.5-12T307-235l-119 50L78-375l103-78q-1-7-1-13.5v-27q0-6.5 1-13.5L78-585l110-190 119 50q11-8 23-15t24-12l16-128h220l16 128q13 5 24.5 12t22.5 15l119-50 110 190-103 78q1 7 1 13.5v27q0 6.5-2 13.5l103 78-110 190-118-50q-11 8-23 15t-24 12L590-80H370Zm70-80h79l14-106q31-8 57.5-23.5T639-327l99 41 39-68-86-65q5-14 7-29.5t2-31.5q0-16-2-31.5t-7-29.5l86-65-39-68-99 42q-22-23-48.5-38.5T533-694l-13-106h-79l-14 106q-31 8-57.5 23.5T321-633l-99-41-39 68 86 64q-5 15-7 30t-2 32q0 16 2 31t7 30l-86 65 39 68 99-42q22 23 48.5 38.5T427-266l13 106Zm42-180q58 0 99-41t41-99q0-58-41-99t-99-41q-59 0-99.5 41T342-480q0 58 40.5 99t99.5 41Zm-2-140Z"/></svg>
             </button>
         </div>
         <form id="settings">
-            <div id="settings-title">Summarizer Settings</div>
+            <div id="settings-title">ICS Generator Settings</div>
             <label>
                 OpenAI API Key:
                 <input type="password" id="apiKey" autocomplete="off" placeholder="sk-..." />
@@ -205,24 +254,25 @@
             </label>
             <label>
                 System Prompt:
-                <textarea id="systemPrompt" rows="2">summarize the email</textarea>
+                <textarea id="systemPrompt" rows="4">Create a scheduling file for the event in the email. Your response should contain and only contain a markdown code block starting with ```ics and ending with ```. There should be nothing else.</textarea>
             </label>
-            <button type="submit">Save & Summarize</button>
+            <button type="submit">Save & Generate ICS</button>
         </form>
     </div>
-    <div id="loading" style="display:none;">Loading and summarizing email...</div>
+    <div id="loading" style="display:none;">Loading and generating ICS...</div>
     <div id="summary" style="display:none;"></div>
+    <button id="download-ics" style="display:none;">Download ICS</button>
     <div id="error" style="display:none;"></div>
 </body>
 <script>
     // Settings keys for localStorage
-    const LS_KEY = "emailSummarizerSettings";
+    const LS_KEY = "emailEventICSSettings";
     function loadSettings() {
         const defaults = {
             apiKey: "",
             apiUrl: "https://api.openai.com/v1/chat/completions",
             model: "gpt-4.1",
-            systemPrompt: "summarize the email"
+            systemPrompt: "Create a scheduling file for the event in the email. Your response should contain and only contain a markdown code block starting with ```ics and ending with ```. There should be nothing else."
         };
         try {
             const saved = JSON.parse(localStorage.getItem(LS_KEY));
@@ -249,7 +299,13 @@
         };
     }
 
-    async function summarizeEmail(emailText, settings) {
+    function extractICSBlock(markdown) {
+        // Extracts the first ```ics ... ``` code block
+        const match = markdown.match(/```ics\s*([\s\S]*?)```/i);
+        return match ? match[1].trim() : null;
+    }
+
+    async function generateICS(emailText, settings) {
         const messages = [
             { role: "system", content: settings.systemPrompt },
             { role: "user", content: emailText }
@@ -263,7 +319,7 @@
             body: JSON.stringify({
                 model: settings.model,
                 messages: messages,
-                max_tokens: 512,
+                max_tokens: 1024,
                 temperature: 0.3
             })
         });
@@ -274,41 +330,75 @@
         if (data.choices && data.choices.length > 0) {
             return data.choices[0].message.content.trim();
         } else {
-            throw new Error("No summary returned from API.");
+            throw new Error("No ICS returned from API.");
         }
     }
 
     function setLoading(loading) {
         document.getElementById("loading").style.display = loading ? "block" : "none";
         document.getElementById("summary").style.display = "none";
+        document.getElementById("download-ics").style.display = "none";
         document.getElementById("error").style.display = "none";
     }
-    function setSummary(summary) {
-        // Render markdown using marked.js
-        document.getElementById("summary").innerHTML = marked.parse(summary);
-        document.getElementById("summary").style.display = "block";
+    function setICS(ics) {
+        const summaryDiv = document.getElementById("summary");
+        summaryDiv.innerHTML = `<div id="ics-block">${ics ? escapeHTML(ics) : "(No ICS found in response.)"}</div>`;
+        summaryDiv.style.display = "block";
         document.getElementById("loading").style.display = "none";
         document.getElementById("error").style.display = "none";
+        // Show download button if ICS is present
+        const downloadBtn = document.getElementById("download-ics");
+        if (ics) {
+            downloadBtn.style.display = "inline-block";
+            downloadBtn.onclick = function() {
+                const blob = new Blob([ics], { type: "text/calendar" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "event.ics";
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, 100);
+            };
+        } else {
+            downloadBtn.style.display = "none";
+        }
     }
     function setError(msg) {
         document.getElementById("error").textContent = msg;
         document.getElementById("error").style.display = "block";
         document.getElementById("loading").style.display = "none";
         document.getElementById("summary").style.display = "none";
+        document.getElementById("download-ics").style.display = "none";
+    }
+    function escapeHTML(str) {
+        return str.replace(/[&<>"']/g, function(m) {
+            return ({
+                '&': '&',
+                '<': '<',
+                '>': '>',
+                '"': '"',
+                "'": '&#39;'
+            })[m];
+        });
     }
 
     let lastEmailText = "";
 
-    async function runSummarization(settings) {
+    async function runICSGeneration(settings) {
         setLoading(true);
         Office.context.mailbox.item.body.getAsync(Office.CoercionType.Text, async function(result) {
             if (result.status === Office.AsyncResultStatus.Succeeded) {
                 lastEmailText = result.value;
                 try {
-                    const summary = await summarizeEmail(lastEmailText, settings);
-                    setSummary(summary);
+                    const markdown = await generateICS(lastEmailText, settings);
+                    const ics = extractICSBlock(markdown);
+                    setICS(ics);
                 } catch (err) {
-                    setError("Failed to summarize: " + err.message);
+                    setError("Failed to generate ICS: " + err.message);
                 }
             } else {
                 setError("Unable to load email body.");
@@ -352,16 +442,16 @@
                 }
             });
 
-            // On load, if API key is set, run summarization
+            // On load, if API key is set, run ICS generation
             if (settings.apiKey) {
-                runSummarization(settings);
+                runICSGeneration(settings);
             }
 
             settingsForm.addEventListener("submit", function(e) {
                 e.preventDefault();
                 const newSettings = getSettingsFromForm();
                 saveSettings(newSettings);
-                runSummarization(newSettings);
+                runICSGeneration(newSettings);
                 settingsVisible = false;
                 settingsForm.classList.remove("visible");
             });
