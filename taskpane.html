@@ -454,6 +454,7 @@
 
     // --- ICS Editor Rendering ---
     function renderICSEditor() {
+        setLoading(false); // Hide loading message when editor is shown
         // Render calendar metadata (collapsible, collapsed by default)
         const metaDiv = document.getElementById("calendar-metadata");
         metaDiv.innerHTML = "";
