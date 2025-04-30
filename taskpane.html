@@ -159,6 +159,25 @@
         body.dark-mode #error {
             color: #ff6b6b;
         }
+        /* Dark mode scrollbar for summary */
+        body.dark-mode #summary::-webkit-scrollbar {
+            height: 10px;
+            background: #232323;
+        }
+        body.dark-mode #summary::-webkit-scrollbar-thumb {
+            background: #444;
+            border-radius: 6px;
+        }
+        body.dark-mode #summary::-webkit-scrollbar-thumb:hover {
+            background: #666;
+        }
+        body.dark-mode #summary::-webkit-scrollbar-corner {
+            background: #232323;
+        }
+        body.dark-mode #summary {
+            scrollbar-color: #444 #232323;
+            scrollbar-width: thin;
+        }
     </style>
 </head>
 <body>
